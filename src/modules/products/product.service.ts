@@ -4,10 +4,7 @@
 import { PrismaClient, Prisma, ProductStatus } from '@prisma/client';
 import { logger } from '../../config/logger';
 import { NotFoundError } from '../../common/utils/AppError';
-import type {
-  ProductResponse,
-  PaginatedProductResult,
-} from './product.types';
+import type { ProductResponse, PaginatedProductResult } from './product.types';
 import type {
   CreateProductInput,
   UpdateProductInput,

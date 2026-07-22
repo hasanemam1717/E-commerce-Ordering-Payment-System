@@ -113,4 +113,3 @@ productRouter.delete(
     res.json({ message: `Product '${id}' has been deactivated` });
   }),
 );
-
