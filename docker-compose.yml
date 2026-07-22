@@ -1,0 +1,96 @@
+# ──────────────────────────────────────────────────────────
+# Services
+# ──────────────────────────────────────────────────────────
+services:
+
+  # ─── PostgreSQL 16 ─────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecommerce-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: &db_user     ecommerce_user
+      POSTGRES_PASSWORD: &db_pass ecommerce_password
+      POSTGRES_DB: &db_name       ecommerce_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecommerce_user} -d ${POSTGRES_DB:-ecommerce_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ecommerce-net
+
+  # ─── Redis 7 ───────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - ecommerce-net
+
+  # ─── Backend Application ───────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce-app
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      # Server
+      NODE_ENV:                       production
+      PORT:                           4000
+      HOST:                           0.0.0.0
+
+      # Database — uses service name "postgres" on the Docker network
+      DATABASE_URL:                   "postgresql://${POSTGRES_USER:-ecommerce_user}:${POSTGRES_PASSWORD:-ecommerce_password}@postgres:5432/${POSTGRES_DB:-ecommerce_db}?schema=public"
+
+      # Security
+      CORS_ORIGIN:                    http://localhost:3000
+      RATE_LIMIT_WINDOW_MS:           900000
+      RATE_LIMIT_MAX:                 100
+
+      # Logging
+      LOG_LEVEL:                      info
+
+      # Redis (for future use — sessions, cache, queues)
+      REDIS_URL:                      redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ecommerce-net
+
+# ──────────────────────────────────────────────────────────
+# Volumes — persistent data
+# ──────────────────────────────────────────────────────────
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+# ──────────────────────────────────────────────────────────
+# Networks
+# ──────────────────────────────────────────────────────────
+networks:
+  ecommerce-net:
+    driver: bridge

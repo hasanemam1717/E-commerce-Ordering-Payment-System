@@ -2,10 +2,14 @@ import { app } from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
 import { connectDatabase, disconnectDatabase } from './config/prisma';
+import { connectRedis, disconnectRedis } from './config/redis';
 
 async function main(): Promise<void> {
   // ─── Database connection ──────────────────────────
   await connectDatabase();
+
+  // ─── Redis connection ──────────────────────────────
+  await connectRedis();
 
   // ─── Start server ─────────────────────────────────
   const server = app.listen(env.PORT, env.HOST, () => {
@@ -17,6 +21,7 @@ async function main(): Promise<void> {
     logger.info(`Received ${signal}. Shutting down gracefully...`);
     server.close(async () => {
       await disconnectDatabase();
+      await disconnectRedis();
       logger.info('Server shut down complete');
       process.exit(0);
     });

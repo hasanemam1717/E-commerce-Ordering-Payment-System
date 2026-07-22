@@ -21,6 +21,9 @@ const envSchema = z.object({
 
   // Logging
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+
+  // Redis
+  REDIS_URL: z.string().url().default('redis://localhost:6379'),
 });
 
 const parsed = envSchema.safeParse(process.env);

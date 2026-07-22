@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
 }
 
 datasource db {
@@ -7,99 +8,138 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── User / Auth ─────────────────────────────────────
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  firstName String
-  lastName  String
-  role      Role     @default(CUSTOMER)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid()) @map("id")
+  email        String   @unique @map("email")
+  passwordHash String   @map("password_hash")
+  role         Role     @default(CUSTOMER) @map("role")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  orders       Order[]
 
-  orders  Order[]
-  payment Payment[]
+  @@index([email], map: "idx_users_email")
+  @@index([role], map: "idx_users_role")
+  @@map("users")
 }
 
+model Category {
+  id        String     @id @default(uuid()) @map("id")
+  name      String     @map("name")
+  slug      String     @unique @map("slug")
+  parentId  String?    @map("parent_id")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryHierarchy")
+  products  Product[]
+
+  @@index([slug], map: "idx_categories_slug")
+  @@index([parentId], map: "idx_categories_parent_id")
+  @@map("categories")
+}
+
+model Product {
+  id          String        @id @default(uuid()) @map("id")
+  name        String        @map("name")
+  sku         String        @unique @map("sku")
+  description String?       @map("description")
+  price       Decimal       @map("price") @db.Decimal(10, 2)
+  stock       Int           @default(0) @map("stock")
+  status      ProductStatus @default(ACTIVE) @map("status")
+  categoryId  String?       @map("category_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  orderItems  OrderItem[]
+  category    Category?     @relation(fields: [categoryId], references: [id])
+
+  @@index([sku], map: "idx_products_sku")
+  @@index([categoryId], map: "idx_products_category_id")
+  @@index([status], map: "idx_products_status")
+  @@index([categoryId, status], map: "idx_products_category_status")
+  @@index([name], map: "idx_products_name")
+  @@map("products")
+}
+
+model Order {
+  id          String      @id @default(uuid()) @map("id")
+  userId      String      @map("user_id")
+  totalAmount Decimal     @default(0) @map("total_amount") @db.Decimal(10, 2)
+  status      OrderStatus @default(PENDING) @map("status")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  items       OrderItem[]
+  user        User        @relation(fields: [userId], references: [id])
+  payment     Payment?
+
+  @@index([userId], map: "idx_orders_user_id")
+  @@index([status], map: "idx_orders_status")
+  @@index([userId, status], map: "idx_orders_user_status")
+  @@index([createdAt], map: "idx_orders_created_at")
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid()) @map("id")
+  orderId   String  @map("order_id")
+  productId String  @map("product_id")
+  quantity  Int     @map("quantity")
+  price     Decimal @map("price") @db.Decimal(10, 2)
+  subtotal  Decimal @map("subtotal") @db.Decimal(12, 2)
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@unique([orderId, productId], name: "uq_order_items_order_product")
+  @@index([orderId], map: "idx_order_items_order_id")
+  @@index([productId], map: "idx_order_items_product_id")
+  @@map("order_items")
+}
+
+model Payment {
+  id            String          @id @default(uuid()) @map("id")
+  orderId       String          @unique @map("order_id")
+  provider      PaymentProvider @map("provider")
+  transactionId String          @unique @map("transaction_id")
+  status        PaymentStatus   @default(PENDING) @map("status")
+  rawResponse   Json?           @map("raw_response")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  order         Order           @relation(fields: [orderId], references: [id])
+
+  @@index([transactionId], map: "idx_payments_transaction_id")
+  @@index([provider], map: "idx_payments_provider")
+  @@index([status], map: "idx_payments_status")
+  @@index([provider, status], map: "idx_payments_provider_status")
+  @@map("payments")
+}
+
+/// User roles for role-based access control (RBAC)
 enum Role {
   ADMIN
   CUSTOMER
 }
 
-// ─── Product ──────────────────────────────────────────
-model Product {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  price       Decimal  @db.Decimal(10, 2)
-  stock       Int      @default(0)
-  sku         String   @unique
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  orderItems OrderItem[]
+/// Product lifecycle status
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
 }
 
-// ─── Order ────────────────────────────────────────────
-model Order {
-  id         String        @id @default(uuid())
-  userId     String
-  status     OrderStatus   @default(PENDING)
-  total      Decimal       @db.Decimal(10, 2)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-
-  user       User          @relation(fields: [userId], references: [id])
-  items      OrderItem[]
-  payment    Payment?
-}
-
+/// Order lifecycle status
 enum OrderStatus {
   PENDING
-  CONFIRMED
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELLED
-  REFUNDED
+  PAID
+  CANCELED
 }
 
-model OrderItem {
-  id        String  @id @default(uuid())
-  orderId   String
-  productId String
-  quantity  Int
-  price     Decimal @db.Decimal(10, 2)
-
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+/// Supported payment gateway providers
+enum PaymentProvider {
+  STRIPE
+  BKASH
 }
 
-// ─── Payment ──────────────────────────────────────────
-model Payment {
-  id            String        @id @default(uuid())
-  orderId       String        @unique
-  userId        String
-  amount        Decimal       @db.Decimal(10, 2)
-  currency      String        @default("USD")
-  status        PaymentStatus @default(PENDING)
-  method        String?
-  transactionId String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  order  Order @relation(fields: [orderId], references: [id])
-  user   User  @relation(fields: [userId], references: [id])
-}
-
+/// Transaction-level payment status
 enum PaymentStatus {
   PENDING
-  PROCESSING
-  SUCCEEDED
+  SUCCESS
   FAILED
-  REFUNDED
-  PARTIALLY_REFUNDED
 }
