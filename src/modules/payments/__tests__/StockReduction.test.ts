@@ -49,9 +49,7 @@ function createService(): PaymentService {
 beforeEach(() => {
   jest.resetAllMocks();
   // Default: $transaction executes the callback with mockTx
-  mockPrisma.$transaction.mockImplementation(
-    (cb: (tx: any) => Promise<void>) => cb(mockTx),
-  );
+  mockPrisma.$transaction.mockImplementation((cb: (tx: any) => Promise<void>) => cb(mockTx));
 });
 
 // ════════════════════════════════════════════════════════════
@@ -101,11 +99,7 @@ describe('Stock Reduction — Happy Path', () => {
     mockTx.order.update.mockResolvedValue({ ...payment.order, status: 'PAID' });
     mockTx.product.updateMany.mockResolvedValue({ count: 1 });
 
-    await createService().handlePaymentSuccess(
-      'pi_test_123',
-      'STRIPE',
-      { status: 'succeeded' },
-    );
+    await createService().handlePaymentSuccess('pi_test_123', 'STRIPE', { status: 'succeeded' });
 
     // Payment updated to SUCCESS
     expect(mockTx.payment.update).toHaveBeenCalledWith(
@@ -140,11 +134,7 @@ describe('Stock Reduction — Idempotency', () => {
     const payment = buildPaymentFixture({ status: 'SUCCESS' });
     mockTx.payment.findUnique.mockResolvedValue(payment);
 
-    await createService().handlePaymentSuccess(
-      'pi_test_123',
-      'STRIPE',
-      {},
-    );
+    await createService().handlePaymentSuccess('pi_test_123', 'STRIPE', {});
 
     // No mutations were made
     expect(mockTx.payment.update).not.toHaveBeenCalled();
@@ -155,11 +145,7 @@ describe('Stock Reduction — Idempotency', () => {
   it('silently skips if payment record is not found', async () => {
     mockTx.payment.findUnique.mockResolvedValue(null);
 
-    await createService().handlePaymentSuccess(
-      'txn_not_found',
-      'STRIPE',
-      {},
-    );
+    await createService().handlePaymentSuccess('txn_not_found', 'STRIPE', {});
 
     expect(mockTx.payment.update).not.toHaveBeenCalled();
     expect(mockTx.order.update).not.toHaveBeenCalled();
@@ -182,9 +168,9 @@ describe('Stock Reduction — Race Conditions', () => {
     // read and write
     mockTx.product.updateMany.mockResolvedValue({ count: 0 });
 
-    await expect(
-      createService().handlePaymentSuccess('pi_test_123', 'STRIPE', {}),
-    ).rejects.toThrow(/Insufficient stock for product/);
+    await expect(createService().handlePaymentSuccess('pi_test_123', 'STRIPE', {})).rejects.toThrow(
+      /Insufficient stock for product/,
+    );
   });
 
   it('processes multiple line items correctly', async () => {
@@ -193,15 +179,15 @@ describe('Stock Reduction — Race Conditions', () => {
         id: 'order-2',
         userId: 'user-1',
         status: 'PENDING',
-        totalAmount: 250.00,
+        totalAmount: 250.0,
         items: [
           {
             id: 'oi-1',
             orderId: 'order-2',
             productId: 'p-mouse',
             quantity: 3,
-            price: 25.00,
-            subtotal: 75.00,
+            price: 25.0,
+            subtotal: 75.0,
             product: { id: 'p-mouse', name: 'Mouse', stock: 10 },
           },
           {
@@ -209,8 +195,8 @@ describe('Stock Reduction — Race Conditions', () => {
             orderId: 'order-2',
             productId: 'p-keyboard',
             quantity: 1,
-            price: 75.00,
-            subtotal: 75.00,
+            price: 75.0,
+            subtotal: 75.0,
             product: { id: 'p-keyboard', name: 'Keyboard', stock: 5 },
           },
         ],

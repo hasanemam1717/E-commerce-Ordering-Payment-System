@@ -38,15 +38,36 @@ const categories = [
 ];
 
 const productsLaptops = [
-  { id: 'p1', name: 'MacBook Pro', sku: 'LAP-001', price: 1999.99, stock: 10, categoryId: CHILD_A_ID },
+  {
+    id: 'p1',
+    name: 'MacBook Pro',
+    sku: 'LAP-001',
+    price: 1999.99,
+    stock: 10,
+    categoryId: CHILD_A_ID,
+  },
 ];
 
 const productsGaming = [
-  { id: 'p2', name: 'Alienware', sku: 'LAP-002', price: 2499.99, stock: 5, categoryId: GRANDCHILD_ID },
+  {
+    id: 'p2',
+    name: 'Alienware',
+    sku: 'LAP-002',
+    price: 2499.99,
+    stock: 5,
+    categoryId: GRANDCHILD_ID,
+  },
 ];
 
 const productsAudio = [
-  { id: 'p3', name: 'Sony WH-1000XM5', sku: 'HDN-001', price: 349.99, stock: 50, categoryId: CHILD_B_ID },
+  {
+    id: 'p3',
+    name: 'Sony WH-1000XM5',
+    sku: 'HDN-001',
+    price: 349.99,
+    stock: 50,
+    categoryId: CHILD_B_ID,
+  },
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -150,9 +171,9 @@ describe('CategoryService — DFS Tree Traversal', () => {
     mockPrisma.product.findMany.mockResolvedValue([]);
 
     const service = createService();
-    await expect(
-      service.getCategoryTreeWithProducts('non-existent-id'),
-    ).rejects.toThrow(NotFoundError);
+    await expect(service.getCategoryTreeWithProducts('non-existent-id')).rejects.toThrow(
+      NotFoundError,
+    );
   });
 });
 
@@ -239,16 +260,13 @@ describe('CategoryService — Cache Invalidation', () => {
   });
 
   it('invalidates all category trees via SCAN', async () => {
-    mockRedis.scan
-      .mockResolvedValueOnce(['0', ['category:tree:cat-a', 'category:tree:cat-b']]);
+    mockRedis.scan.mockResolvedValueOnce(['0', ['category:tree:cat-a', 'category:tree:cat-b']]);
     mockRedis.del.mockResolvedValue(2);
 
     const service = createService();
     await service.invalidateCategoryCache();
 
-    expect(mockRedis.scan).toHaveBeenCalledWith(
-      '0', 'MATCH', 'category:tree:*', 'COUNT', 100,
-    );
+    expect(mockRedis.scan).toHaveBeenCalledWith('0', 'MATCH', 'category:tree:*', 'COUNT', 100);
     expect(mockRedis.del).toHaveBeenCalledWith('category:tree:cat-a', 'category:tree:cat-b');
   });
 

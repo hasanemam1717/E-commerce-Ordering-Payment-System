@@ -1,4 +1,4 @@
-openapi: "3.0.3"
+openapi: '3.0.3'
 info:
   title: E-commerce Ordering & Payment System API
   description: |
@@ -8,7 +8,7 @@ info:
     **Authentication:** JWT Bearer tokens (future).
     **Payment Gateways:** Stripe (SDK) and bKash (REST).
     **Caching:** Redis cache-aside for category trees.
-  version: "1.0.0"
+  version: '1.0.0'
   contact:
     name: API Support
     url: https://github.com/hasanemam1717/E-commerce-Ordering-Payment-System
@@ -45,7 +45,7 @@ components:
           type: string
           format: password
           minLength: 8
-          example: "securePassword123"
+          example: 'securePassword123'
     LoginResponse:
       type: object
       properties:
@@ -63,7 +63,7 @@ components:
               type: string
               format: email
             role:
-              $ref: "#/components/schemas/Role"
+              $ref: '#/components/schemas/Role'
 
     # ─── Error ───────────────────────────────────────────────
     ApiError:
@@ -80,7 +80,7 @@ components:
           type: object
           description: Additional error context (e.g. productIds, available)
           example:
-            productId: "uuid-here"
+            productId: 'uuid-here'
             requested: 999
             available: 10
       examples:
@@ -154,16 +154,16 @@ components:
         children:
           type: array
           items:
-            $ref: "#/components/schemas/CategoryTreeNode"
+            $ref: '#/components/schemas/CategoryTreeNode'
         products:
           type: array
           items:
-            $ref: "#/components/schemas/CategoryProduct"
+            $ref: '#/components/schemas/CategoryProduct'
     CategoryTreeResponse:
       type: object
       properties:
         category:
-          $ref: "#/components/schemas/CategoryTreeNode"
+          $ref: '#/components/schemas/CategoryTreeNode'
         totalProducts:
           type: integer
           description: Total count of all active products across the tree
@@ -230,7 +230,7 @@ components:
           type: string
           format: uuid
         status:
-          $ref: "#/components/schemas/OrderStatus"
+          $ref: '#/components/schemas/OrderStatus'
         total:
           type: number
           format: decimal
@@ -238,7 +238,7 @@ components:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/OrderItemResponse"
+            $ref: '#/components/schemas/OrderItemResponse'
         createdAt:
           type: string
           format: date-time
@@ -253,7 +253,7 @@ components:
           format: uuid
           example: 62e12774-547e-45f0-a8e0-450ea5786f41
         provider:
-          $ref: "#/components/schemas/PaymentProvider"
+          $ref: '#/components/schemas/PaymentProvider'
     InitiatePaymentResponse:
       type: object
       properties:
@@ -262,9 +262,9 @@ components:
           example: pi_3Qabc...
         paymentUrl:
           type: string
-          example: ""
+          example: ''
         status:
-          $ref: "#/components/schemas/PaymentStatus"
+          $ref: '#/components/schemas/PaymentStatus'
         metadata:
           type: object
           properties:
@@ -303,7 +303,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
       examples:
         unsupportedProvider:
           value:
@@ -316,7 +316,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
       examples:
         invalidSignature:
           value:
@@ -327,7 +327,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
       examples:
         categoryNotFound:
           value:
@@ -344,7 +344,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
       examples:
         insufficientStock:
           value:
@@ -359,7 +359,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
       examples:
         inactiveProduct:
           value:
@@ -380,7 +380,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
       examples:
         rateLimited:
           value:
@@ -391,7 +391,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
       examples:
         internalError:
           value:
@@ -416,22 +416,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/LoginRequest"
+              $ref: '#/components/schemas/LoginRequest'
       responses:
-        "200":
+        '200':
           description: Authentication successful
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LoginResponse"
-        "400":
-          $ref: "#/components/responses/400BadRequest"
-        "401":
-          $ref: "#/components/responses/401Unauthorized"
-        "429":
-          $ref: "#/components/responses/429TooManyRequests"
-        "500":
-          $ref: "#/components/responses/500InternalServerError"
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '429':
+          $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
 
   # ─── Categories ────────────────────────────────────────────
   /categories/{id}/tree:
@@ -454,12 +454,12 @@ paths:
             format: uuid
             example: c77bc99d-6014-4e06-a348-47d4a8c138a5
       responses:
-        "200":
+        '200':
           description: Category tree with nested children and products.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CategoryTreeResponse"
+                $ref: '#/components/schemas/CategoryTreeResponse'
               example:
                 category:
                   id: c77bc99d-6014-4e06-a348-47d4a8c138a5
@@ -503,10 +503,10 @@ paths:
                   products: []
                 totalProducts: 3
                 depth: 1
-        "404":
-          $ref: "#/components/responses/404NotFound"
-        "500":
-          $ref: "#/components/responses/500InternalServerError"
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
 
   /categories/cache:
     delete:
@@ -526,7 +526,7 @@ paths:
             type: string
             format: uuid
       responses:
-        "200":
+        '200':
           description: Cache invalidated successfully
           content:
             application/json:
@@ -536,8 +536,8 @@ paths:
                   message:
                     type: string
                     example: Cache invalidated for category 'c77bc99d-6014-4e06-a348-47d4a8c138a5'
-        "500":
-          $ref: "#/components/responses/500InternalServerError"
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
 
   # ─── Orders ────────────────────────────────────────────────
   /orders:
@@ -558,24 +558,24 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateOrderRequest"
+              $ref: '#/components/schemas/CreateOrderRequest'
             example:
-              userId: "48843698-2ea6-49eb-afe5-045e9fd5e7a7"
+              userId: '48843698-2ea6-49eb-afe5-045e9fd5e7a7'
               items:
-                - productId: "8cf0df89-4a4e-417e-9046-249222eac9cf"
+                - productId: '8cf0df89-4a4e-417e-9046-249222eac9cf'
                   quantity: 1
-                - productId: "ccf78956-c179-4f2c-b712-06faf876d9cb"
+                - productId: 'ccf78956-c179-4f2c-b712-06faf876d9cb'
                   quantity: 2
       responses:
-        "201":
+        '201':
           description: Order created successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OrderResponse"
+                $ref: '#/components/schemas/OrderResponse'
               example:
                 id: 49d402a7-90a0-48e7-86ad-d07d8698faed
-                userId: "48843698-2ea6-49eb-afe5-045e9fd5e7a7"
+                userId: '48843698-2ea6-49eb-afe5-045e9fd5e7a7'
                 status: PENDING
                 total: 2699.97
                 items:
@@ -591,17 +591,17 @@ paths:
                     quantity: 2
                     unitPrice: 349.99
                     subtotal: 699.98
-                createdAt: "2026-07-22T09:40:06.228Z"
-        "400":
-          $ref: "#/components/responses/400BadRequest"
-        "404":
-          $ref: "#/components/responses/404NotFound"
-        "409":
-          $ref: "#/components/responses/409Conflict"
-        "422":
-          $ref: "#/components/responses/422UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/500InternalServerError"
+                createdAt: '2026-07-22T09:40:06.228Z'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '409':
+          $ref: '#/components/responses/409Conflict'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
 
   # ─── Payments ──────────────────────────────────────────────
   /payments/initiate:
@@ -618,22 +618,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/InitiatePaymentRequest"
+              $ref: '#/components/schemas/InitiatePaymentRequest'
       responses:
-        "200":
+        '200':
           description: Payment initiated successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InitiatePaymentResponse"
-        "400":
-          $ref: "#/components/responses/400BadRequest"
-        "404":
-          $ref: "#/components/responses/404NotFound"
-        "422":
-          $ref: "#/components/responses/422UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/500InternalServerError"
+                $ref: '#/components/schemas/InitiatePaymentResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
 
   /payments/confirm:
     post:
@@ -653,7 +653,7 @@ paths:
               required: [provider, transactionId]
               properties:
                 provider:
-                  $ref: "#/components/schemas/PaymentProvider"
+                  $ref: '#/components/schemas/PaymentProvider'
                 transactionId:
                   type: string
                   example: pi_3Qabc...
@@ -661,7 +661,7 @@ paths:
                   type: string
                   format: uuid
       responses:
-        "200":
+        '200':
           description: Payment confirmation result
           content:
             application/json:
@@ -674,10 +674,10 @@ paths:
                   status:
                     type: string
                     example: SUCCESS
-        "402":
-          $ref: "#/components/responses/422UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/500InternalServerError"
+        '402':
+          $ref: '#/components/responses/422UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
 
   # ─── Webhooks ──────────────────────────────────────────────
   /payments/webhook/stripe:
@@ -703,14 +703,14 @@ paths:
             schema:
               type: object
       responses:
-        "200":
+        '200':
           description: Webhook acknowledged (always 200)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/WebhookResponse"
-        "500":
-          $ref: "#/components/responses/500InternalServerError"
+                $ref: '#/components/schemas/WebhookResponse'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
       x-gateway-info:
         provider: Stripe
         signature-header: stripe-signature
@@ -743,14 +743,14 @@ paths:
                 transactionStatus:
                   type: string
       responses:
-        "200":
+        '200':
           description: Webhook acknowledged (always 200)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/WebhookResponse"
-        "500":
-          $ref: "#/components/responses/500InternalServerError"
+                $ref: '#/components/schemas/WebhookResponse'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
       x-gateway-info:
         provider: bKash
         signature-header: x-app-key
@@ -769,7 +769,7 @@ paths:
             type: string
             format: uuid
       responses:
-        "200":
+        '200':
           description: Payment record retrieved successfully
           content:
             application/json:
@@ -783,11 +783,11 @@ paths:
                     type: string
                     format: uuid
                   provider:
-                    $ref: "#/components/schemas/PaymentProvider"
+                    $ref: '#/components/schemas/PaymentProvider'
                   transactionId:
                     type: string
                   status:
-                    $ref: "#/components/schemas/PaymentStatus"
+                    $ref: '#/components/schemas/PaymentStatus'
                   rawResponse:
                     type: object
                     nullable: true
@@ -804,13 +804,13 @@ paths:
                         type: string
                         format: uuid
                       status:
-                        $ref: "#/components/schemas/OrderStatus"
+                        $ref: '#/components/schemas/OrderStatus'
                       totalAmount:
                         type: string
-        "404":
-          $ref: "#/components/responses/404NotFound"
-        "500":
-          $ref: "#/components/responses/500InternalServerError"
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
 
 # ─────────────────────────────────────────────────────────────
 # Tags

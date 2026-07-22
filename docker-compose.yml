@@ -71,6 +71,10 @@ services:
 
       # Redis (for future use — sessions, cache, queues)
       REDIS_URL:                      redis://redis:6379
+
+      # JWT
+      JWT_SECRET:                     "${JWT_SECRET:-your-super-secret-key-change-in-production-min-32-chars!!}"
+      JWT_ACCESS_EXPIRES_IN:          15m
     depends_on:
       postgres:
         condition: service_healthy

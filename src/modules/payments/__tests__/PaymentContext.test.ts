@@ -65,9 +65,9 @@ describe('PaymentContext — Strategy Resolution', () => {
       transactionId: 'BKASH001',
     });
 
-    const result = await PaymentContext.initiatePayment('BKASH', 'order-2', 50.00);
+    const result = await PaymentContext.initiatePayment('BKASH', 'order-2', 50.0);
 
-    expect(mockInitiatePayment).toHaveBeenCalledWith('order-2', 50.00, undefined);
+    expect(mockInitiatePayment).toHaveBeenCalledWith('order-2', 50.0, undefined);
     expect(result.paymentUrl).toBe('https://bkash.example.com/pay');
   });
 
@@ -127,9 +127,9 @@ describe('PaymentContext — Strategy Resolution', () => {
 
 describe('PaymentContext — Unsupported Provider', () => {
   it('throws UnsupportedProviderError for an unknown provider on initiatePayment', async () => {
-    await expect(
-      PaymentContext.initiatePayment('PAYPAL' as any, 'order-1', 10),
-    ).rejects.toThrow(UnsupportedProviderError);
+    await expect(PaymentContext.initiatePayment('PAYPAL' as any, 'order-1', 10)).rejects.toThrow(
+      UnsupportedProviderError,
+    );
   });
 
   it('throws UnsupportedProviderError for an unknown provider on verifyPayment', async () => {
@@ -154,8 +154,8 @@ describe('PaymentContext — Error Propagation', () => {
     const apiError = new Error('Stripe API timeout');
     mockInitiatePayment.mockRejectedValue(apiError);
 
-    await expect(
-      PaymentContext.initiatePayment('STRIPE', 'order-err', 10),
-    ).rejects.toThrow('Stripe API timeout');
+    await expect(PaymentContext.initiatePayment('STRIPE', 'order-err', 10)).rejects.toThrow(
+      'Stripe API timeout',
+    );
   });
 });

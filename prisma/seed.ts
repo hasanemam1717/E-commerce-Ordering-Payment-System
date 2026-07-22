@@ -1,32 +1,36 @@
 import { PrismaClient, Role, ProductStatus, PaymentProvider } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
   console.log('🌱 Seeding database...\n');
 
-  // ─── Users ──────────────────────────────────────────
+  // ─── Users (real bcrypt hashes) ─────────────────────
+  const adminPasswordHash = await bcrypt.hash('admin123', 10);
+  const customerPasswordHash = await bcrypt.hash('customer123', 10);
+
   const admin = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
-    update: {},
+    update: { passwordHash: adminPasswordHash },
     create: {
       email: 'admin@example.com',
-      passwordHash: '$2b$10$placeholder_hashed_password',
+      passwordHash: adminPasswordHash,
       role: Role.ADMIN,
     },
   });
 
   const customer = await prisma.user.upsert({
     where: { email: 'customer@example.com' },
-    update: {},
+    update: { passwordHash: customerPasswordHash },
     create: {
       email: 'customer@example.com',
-      passwordHash: '$2b$10$placeholder_hashed_password',
+      passwordHash: customerPasswordHash,
       role: Role.CUSTOMER,
     },
   });
 
-  console.log(`👤 Users: ${admin.email} (ADMIN), ${customer.email} (CUSTOMER)`);
+  console.log(`👤 Users: ${admin.email} (ADMIN) / ${customer.email} (CUSTOMER)`);
 
   // ─── Categories (hierarchical) ──────────────────────
   const electronics = await prisma.category.create({
@@ -45,7 +49,9 @@ async function main(): Promise<void> {
     data: { name: 'Audio', slug: 'audio', parentId: electronics.id },
   });
 
-  console.log(`📂 Categories: ${electronics.name} → ${laptops.name}, ${smartphones.name}, ${audio.name}`);
+  console.log(
+    `📂 Categories: ${electronics.name} → ${laptops.name}, ${smartphones.name}, ${audio.name}`,
+  );
 
   // ─── Products ───────────────────────────────────────
   const macbook = await prisma.product.upsert({

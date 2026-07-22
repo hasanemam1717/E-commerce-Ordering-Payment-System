@@ -53,13 +53,19 @@ export class PaymentContext {
   /**
    * Delegate verifyPayment to the correct strategy.
    */
-  static async verifyPayment(provider: PaymentProviderName, payload: {
-    transactionId: string;
-    orderId?: string;
-    [key: string]: unknown;
-  }) {
+  static async verifyPayment(
+    provider: PaymentProviderName,
+    payload: {
+      transactionId: string;
+      orderId?: string;
+      [key: string]: unknown;
+    },
+  ) {
     const strategy = this.getStrategy(provider);
-    logger.debug({ provider, transactionId: payload.transactionId }, 'PaymentContext.verifyPayment');
+    logger.debug(
+      { provider, transactionId: payload.transactionId },
+      'PaymentContext.verifyPayment',
+    );
     return strategy.verifyPayment(payload);
   }
 
