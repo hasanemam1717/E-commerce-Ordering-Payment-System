@@ -19,10 +19,7 @@
 import { PrismaClient, Prisma, PaymentStatus, OrderStatus } from '@prisma/client';
 import { logger } from '../../config/logger';
 import { PaymentContext } from './payment.context';
-import {
-  PaymentNotFoundError,
-  InvalidPaymentStateError,
-} from './payment.errors';
+import { PaymentNotFoundError, InvalidPaymentStateError } from './payment.errors';
 import { UnsupportedProviderError } from './payment.errors';
 import type { PaymentProviderName, InitiatePaymentResponse } from './payment.types';
 
@@ -52,7 +49,7 @@ export class PaymentService {
   ): Promise<InitiatePaymentResponse> {
     // ── 0. Validate provider against Prisma enum ───────
     const validProviders = ['STRIPE', 'BKASH'] as const;
-    if (!validProviders.includes(provider as typeof validProviders[number])) {
+    if (!validProviders.includes(provider as (typeof validProviders)[number])) {
       throw new UnsupportedProviderError(provider);
     }
 
@@ -114,10 +111,7 @@ export class PaymentService {
         },
       });
 
-      logger.info(
-        { orderId, transactionId: result.transactionId, provider },
-        'Payment initiated',
-      );
+      logger.info({ orderId, transactionId: result.transactionId, provider }, 'Payment initiated');
 
       return {
         transactionId: result.transactionId,
@@ -206,7 +200,7 @@ export class PaymentService {
   }
 
   // ════════════════════════════════════════════════════════════
-  //  Private — Post-payment success (atomic stock reduction)
+  //  Public — Post-payment success (atomic stock reduction)
   // ════════════════════════════════════════════════════════════
 
   /**
@@ -218,8 +212,11 @@ export class PaymentService {
    *
    * All steps happen inside a single interactive transaction —
    * if stock decrement fails, everything rolls back.
+   *
+   * This method is public so the WebhookController can call it directly
+   * after idempotency verification.
    */
-  private async handlePaymentSuccess(
+  async handlePaymentSuccess(
     transactionId: string,
     _provider: string,
     rawResponse: Record<string, unknown>,

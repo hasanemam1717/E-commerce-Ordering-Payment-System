@@ -1,35 +1,38 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { asyncHandler } from '../../common/middleware/errorHandler';
 import { prisma } from '../../config/prisma';
 import { PaymentService } from './payment.service';
+import { WebhookController } from './webhook.controller';
 
 const paymentService = new PaymentService(prisma);
+const webhookController = new WebhookController(paymentService);
 
 /**
  * Webhook router — MUST be mounted before express.json()
  * in app.ts because Stripe needs the raw body for signature verification.
+ *
+ * These handlers ALWAYS return 200 to prevent gateway retries.
+ * They do NOT use asyncHandler — errors are caught internally.
  */
 export const webhookRouter = Router();
 
 // POST /api/payments/webhook/stripe
-webhookRouter.post(
-  '/stripe',
-  asyncHandler(async (req, res) => {
-    const rawBody = (req as import('express').Request & { rawBody: Buffer }).rawBody;
-    await paymentService.handleWebhook('STRIPE', req.headers as Record<string, string | string[]>, rawBody);
-    res.json({ received: true });
-  }),
-);
+webhookRouter.post('/stripe', async (req: Request, res: Response) => {
+  const rawBody = (req as Request & { rawBody: Buffer }).rawBody;
+  const signatureHeader = req.headers['stripe-signature'] as string | undefined;
+
+  const result = await webhookController.handleStripeWebhook(rawBody, signatureHeader);
+  res.status(result.statusCode).json(result.body);
+});
 
 // POST /api/payments/webhook/bkash
-webhookRouter.post(
-  '/bkash',
-  asyncHandler(async (req, res) => {
-    const rawBody = (req as import('express').Request & { rawBody: Buffer }).rawBody;
-    await paymentService.handleWebhook('BKASH', req.headers as Record<string, string | string[]>, rawBody);
-    res.json({ received: true });
-  }),
-);
+webhookRouter.post('/bkash', async (req: Request, res: Response) => {
+  const rawBody = (req as Request & { rawBody: Buffer }).rawBody;
+  const appKeyHeader = req.headers['x-app-key'] as string | undefined;
+
+  const result = await webhookController.handleBkashWebhook(rawBody, appKeyHeader);
+  res.status(result.statusCode).json(result.body);
+});
 
 /**
  * Main payment router.
