@@ -3,6 +3,8 @@
  *
  * Maintains a registry of IPaymentStrategy implementations and delegates
  * calls to the appropriate strategy based on the provider name.
+ *
+ * The registry is exported so integration tests can swap implementations.
  */
 import { logger } from '../../config/logger';
 import { UnsupportedProviderError } from './payment.errors';
@@ -14,8 +16,9 @@ import type { PaymentProviderName } from './payment.types';
 /**
  * Singleton registry mapping provider names → strategy instances.
  * New strategies are registered here.
+ * Exported for testability — tests can overwrite entries.
  */
-const STRATEGY_REGISTRY: Record<string, IPaymentStrategy> = {
+export const STRATEGY_REGISTRY: Record<string, IPaymentStrategy> = {
   STRIPE: new StripePaymentStrategy(),
   BKASH: new BkashPaymentStrategy(),
 };

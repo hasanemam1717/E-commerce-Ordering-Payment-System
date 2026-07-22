@@ -1,0 +1,828 @@
+openapi: "3.0.3"
+info:
+  title: E-commerce Ordering & Payment System API
+  description: |
+    Production-grade e-commerce backend API built with Express, TypeScript,
+    Prisma ORM, and a modular clean architecture.
+
+    **Authentication:** JWT Bearer tokens (future).
+    **Payment Gateways:** Stripe (SDK) and bKash (REST).
+    **Caching:** Redis cache-aside for category trees.
+  version: "1.0.0"
+  contact:
+    name: API Support
+    url: https://github.com/hasanemam1717/E-commerce-Ordering-Payment-System
+
+servers:
+  - url: http://localhost:4000/api
+    description: Local development
+  - url: https://api.production.example.com/api
+    description: Production
+
+# ─────────────────────────────────────────────────────────────
+# Security
+# ─────────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token (future — not yet enforced).
+
+  # ─── Reusable Schemas ──────────────────────────────────────
+  schemas:
+    # ─── Auth ────────────────────────────────────────────────
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: customer@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "securePassword123"
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT access token
+          example: eyJhbGciOiJIUzI1NiIs...
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            role:
+              $ref: "#/components/schemas/Role"
+
+    # ─── Error ───────────────────────────────────────────────
+    ApiError:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          example: Resource not found
+        context:
+          type: object
+          description: Additional error context (e.g. productIds, available)
+          example:
+            productId: "uuid-here"
+            requested: 999
+            available: 10
+      examples:
+        notFound:
+          value:
+            status: error
+            message: Resource not found
+        validationError:
+          value:
+            status: error
+            message: Unprocessable entity
+        rateLimited:
+          value:
+            status: error
+            message: Too many requests, please try again later.
+
+    # ─── Enums ───────────────────────────────────────────────
+    Role:
+      type: string
+      enum: [ADMIN, CUSTOMER]
+    ProductStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE]
+    OrderStatus:
+      type: string
+      enum: [PENDING, PAID, CANCELED]
+    PaymentProvider:
+      type: string
+      enum: [STRIPE, BKASH]
+    PaymentStatus:
+      type: string
+      enum: [PENDING, SUCCESS, FAILED]
+
+    # ─── Category ────────────────────────────────────────────
+    CategoryProduct:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: MacBook Pro 14"
+        sku:
+          type: string
+          example: LAP-001
+        price:
+          type: number
+          format: decimal
+          example: 1999.99
+        stock:
+          type: integer
+          example: 10
+    CategoryTreeNode:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Electronics
+        slug:
+          type: string
+          example: electronics
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          example: null
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryTreeNode"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryProduct"
+    CategoryTreeResponse:
+      type: object
+      properties:
+        category:
+          $ref: "#/components/schemas/CategoryTreeNode"
+        totalProducts:
+          type: integer
+          description: Total count of all active products across the tree
+          example: 12
+        depth:
+          type: integer
+          description: Maximum nesting depth (0 = leaf)
+          example: 2
+
+    # ─── Order ───────────────────────────────────────────────
+    CreateOrderRequest:
+      type: object
+      required: [userId, items]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: 48843698-2ea6-49eb-afe5-045e9fd5e7a7
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId:
+                type: string
+                format: uuid
+                example: 8cf0df89-4a4e-417e-9046-249222eac9cf
+              quantity:
+                type: integer
+                minimum: 1
+                example: 2
+    OrderItemResponse:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+          example: MacBook Pro 14"
+        sku:
+          type: string
+          example: LAP-001
+        quantity:
+          type: integer
+          example: 2
+        unitPrice:
+          type: number
+          format: decimal
+          example: 1999.99
+        subtotal:
+          type: number
+          format: decimal
+          example: 3999.98
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        total:
+          type: number
+          format: decimal
+          example: 4699.96
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItemResponse"
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── Payment / Webhook ──────────────────────────────────
+    InitiatePaymentRequest:
+      type: object
+      required: [orderId, provider]
+      properties:
+        orderId:
+          type: string
+          format: uuid
+          example: 62e12774-547e-45f0-a8e0-450ea5786f41
+        provider:
+          $ref: "#/components/schemas/PaymentProvider"
+    InitiatePaymentResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          example: pi_3Qabc...
+        paymentUrl:
+          type: string
+          example: ""
+        status:
+          $ref: "#/components/schemas/PaymentStatus"
+        metadata:
+          type: object
+          properties:
+            client_secret:
+              type: string
+            payment_intent_id:
+              type: string
+
+    WebhookResponse:
+      type: object
+      properties:
+        received:
+          type: boolean
+          example: true
+      description: >
+        Webhooks always return HTTP 200 with `{"received":true}` to prevent
+        gateway retry timeouts. Errors are logged server-side.
+  # ─────────────────────────────────────────────────────────────
+  # Response Definitions
+  # ─────────────────────────────────────────────────────────────
+  responses:
+    200Ok:
+      description: Request succeeded
+      content:
+        application/json:
+          schema:
+            type: object
+    201Created:
+      description: Resource created successfully
+      content:
+        application/json:
+          schema:
+            type: object
+    400BadRequest:
+      description: Bad request — invalid payload
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+      examples:
+        unsupportedProvider:
+          value:
+            status: error
+            message: "Unsupported payment provider: 'PAYPAL'"
+            context:
+              provider: PAYPAL
+    401Unauthorized:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+      examples:
+        invalidSignature:
+          value:
+            status: error
+            message: Invalid webhook signature
+    404NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+      examples:
+        categoryNotFound:
+          value:
+            status: error
+            message: "Category with id 'bad-id' not found"
+        orderNotFound:
+          value:
+            status: error
+            message: "Payment 'bad-id' not found"
+            context:
+              paymentId: bad-id
+    409Conflict:
+      description: Resource conflict (e.g. insufficient stock)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+      examples:
+        insufficientStock:
+          value:
+            status: error
+            message: "Insufficient stock for product 'p-macbook': requested 999, available 10"
+            context:
+              productId: p-macbook
+              requested: 999
+              available: 10
+    422UnprocessableEntity:
+      description: Validation or business logic error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+      examples:
+        inactiveProduct:
+          value:
+            status: error
+            message: "Product 'p-xyz' is not active (current status: INACTIVE)"
+            context:
+              productId: p-xyz
+              status: INACTIVE
+        invalidState:
+          value:
+            status: error
+            message: "Order 'order-1' is in status 'CANCELED' and cannot be paid"
+            context:
+              orderId: order-1
+              status: CANCELED
+    429TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+      examples:
+        rateLimited:
+          value:
+            status: error
+            message: Too many requests, please try again later.
+    500InternalServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+      examples:
+        internalError:
+          value:
+            status: error
+            message: Internal server error
+
+# ═════════════════════════════════════════════════════════════
+#  Paths
+# ═════════════════════════════════════════════════════════════
+paths:
+  # ─── Auth ──────────────────────────────────────────────────
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate a user and receive a JWT token.
+      description: >
+        Validates email/password credentials against the database and
+        returns a signed JWT access token (future — not yet implemented).
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/400BadRequest"
+        "401":
+          $ref: "#/components/responses/401Unauthorized"
+        "429":
+          $ref: "#/components/responses/429TooManyRequests"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+
+  # ─── Categories ────────────────────────────────────────────
+  /categories/{id}/tree:
+    get:
+      tags: [Categories]
+      summary: Retrieve the full category sub-tree with nested children and active products.
+      description: >
+        Executes a recursive Depth-First Search (DFS) to collect all nested
+        child categories and their ACTIVE products starting from the given
+        category ID. Results are cached in Redis via cache-aside pattern
+        with a 1-hour TTL.
+      operationId: getCategoryTree
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID of the root category.
+          schema:
+            type: string
+            format: uuid
+            example: c77bc99d-6014-4e06-a348-47d4a8c138a5
+      responses:
+        "200":
+          description: Category tree with nested children and products.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryTreeResponse"
+              example:
+                category:
+                  id: c77bc99d-6014-4e06-a348-47d4a8c138a5
+                  name: Electronics
+                  slug: electronics
+                  parentId: null
+                  children:
+                    - id: eabdbae4-face-4b82-9238-e9e649001f18
+                      name: Laptops
+                      slug: laptops
+                      parentId: c77bc99d-6014-4e06-a348-47d4a8c138a5
+                      children: []
+                      products:
+                        - id: 8cf0df89-4a4e-417e-9046-249222eac9cf
+                          name: MacBook Pro 14"
+                          sku: LAP-001
+                          price: 1999.99
+                          stock: 10
+                    - id: 8255de45-f017-431e-9f8f-834f4bb88f93
+                      name: Smartphones
+                      slug: smartphones
+                      parentId: c77bc99d-6014-4e06-a348-47d4a8c138a5
+                      children: []
+                      products:
+                        - id: 93532766-7c57-4012-a0cf-2ae00c20238c
+                          name: iPhone 16 Pro
+                          sku: PHN-001
+                          price: 1099.99
+                          stock: 25
+                    - id: 410fdbd2-a14a-4df7-acee-3eb30e2d8821
+                      name: Audio
+                      slug: audio
+                      parentId: c77bc99d-6014-4e06-a348-47d4a8c138a5
+                      children: []
+                      products:
+                        - id: ccf78956-c179-4f2c-b712-06faf876d9cb
+                          name: Sony WH-1000XM5
+                          sku: HDN-001
+                          price: 349.99
+                          stock: 50
+                  products: []
+                totalProducts: 3
+                depth: 1
+        "404":
+          $ref: "#/components/responses/404NotFound"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+
+  /categories/cache:
+    delete:
+      tags: [Categories]
+      summary: Invalidate category tree cache.
+      description: >
+        Removes cached category tree data from Redis. If `categoryId` query
+        parameter is provided, only that specific tree is invalidated.
+        Otherwise ALL category tree caches are purged via SCAN.
+      operationId: invalidateCategoryCache
+      parameters:
+        - name: categoryId
+          in: query
+          required: false
+          description: UUID of the category tree to invalidate
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Cache invalidated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Cache invalidated for category 'c77bc99d-6014-4e06-a348-47d4a8c138a5'
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+
+  # ─── Orders ────────────────────────────────────────────────
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Create a new order with validated line items.
+      description: >
+        Creates an order with PENDING status. Validates that all products
+        exist, are ACTIVE, and have sufficient stock. Uses an interactive
+        Prisma transaction with FOR UPDATE row locking to prevent race
+        conditions and overselling. All monetary values use Prisma.Decimal
+        for floating-point-safe arithmetic.
+      operationId: createOrder
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+            example:
+              userId: "48843698-2ea6-49eb-afe5-045e9fd5e7a7"
+              items:
+                - productId: "8cf0df89-4a4e-417e-9046-249222eac9cf"
+                  quantity: 1
+                - productId: "ccf78956-c179-4f2c-b712-06faf876d9cb"
+                  quantity: 2
+      responses:
+        "201":
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+              example:
+                id: 49d402a7-90a0-48e7-86ad-d07d8698faed
+                userId: "48843698-2ea6-49eb-afe5-045e9fd5e7a7"
+                status: PENDING
+                total: 2699.97
+                items:
+                  - productId: 8cf0df89-4a4e-417e-9046-249222eac9cf
+                    productName: MacBook Pro 14"
+                    sku: LAP-001
+                    quantity: 1
+                    unitPrice: 1999.99
+                    subtotal: 1999.99
+                  - productId: ccf78956-c179-4f2c-b712-06faf876d9cb
+                    productName: Sony WH-1000XM5
+                    sku: HDN-001
+                    quantity: 2
+                    unitPrice: 349.99
+                    subtotal: 699.98
+                createdAt: "2026-07-22T09:40:06.228Z"
+        "400":
+          $ref: "#/components/responses/400BadRequest"
+        "404":
+          $ref: "#/components/responses/404NotFound"
+        "409":
+          $ref: "#/components/responses/409Conflict"
+        "422":
+          $ref: "#/components/responses/422UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+
+  # ─── Payments ──────────────────────────────────────────────
+  /payments/initiate:
+    post:
+      tags: [Payments]
+      summary: Initiate a payment with the selected provider.
+      description: >
+        Validates the order is in PENDING status, creates a Payment record,
+        and delegates to the appropriate provider strategy (Stripe or bKash)
+        to obtain a transaction ID and (for bKash) a redirect URL.
+      operationId: initiatePayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitiatePaymentRequest"
+      responses:
+        "200":
+          description: Payment initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InitiatePaymentResponse"
+        "400":
+          $ref: "#/components/responses/400BadRequest"
+        "404":
+          $ref: "#/components/responses/404NotFound"
+        "422":
+          $ref: "#/components/responses/422UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+
+  /payments/confirm:
+    post:
+      tags: [Payments]
+      summary: Confirm a payment after frontend completion.
+      description: >
+        Verifies the payment status with the provider and, if successful,
+        triggers atomic stock reduction (Payment → SUCCESS, Order → PAID,
+        stock decrement with FOR UPDATE locking).
+      operationId: confirmPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, transactionId]
+              properties:
+                provider:
+                  $ref: "#/components/schemas/PaymentProvider"
+                transactionId:
+                  type: string
+                  example: pi_3Qabc...
+                orderId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Payment confirmation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  status:
+                    type: string
+                    example: SUCCESS
+        "402":
+          $ref: "#/components/responses/422UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+
+  # ─── Webhooks ──────────────────────────────────────────────
+  /payments/webhook/stripe:
+    post:
+      tags: [Webhooks]
+      summary: Incoming Stripe webhook.
+      description: >
+        Stripe sends webhook events (e.g. `payment_intent.succeeded`) to this
+        endpoint. The request body is captured as a raw Buffer before any JSON
+        parsing for cryptographic signature verification via
+        `stripe.webhooks.constructEvent`.
+
+        **Idempotency:** Duplicate events are deduplicated via Redis SETNX
+        with a 24-hour TTL.
+
+        **Always returns HTTP 200** to prevent Stripe retries — errors are
+        logged server-side.
+      operationId: stripeWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook acknowledged (always 200)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookResponse"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+      x-gateway-info:
+        provider: Stripe
+        signature-header: stripe-signature
+        signature-type: HMAC-SHA256 (cryptographic)
+
+  /payments/webhook/bkash:
+    post:
+      tags: [Webhooks]
+      summary: Incoming bKash webhook (callback notification).
+      description: >
+        bKash sends callback notifications with paymentID, trxID, and
+        transactionStatus after a customer completes checkout. The
+        `x-app-key` header is validated against the configured app key.
+
+        **Idempotency:** Deduplicated via Redis SETNX with 24-hour TTL.
+
+        **Always returns HTTP 200** — errors logged server-side.
+      operationId: bkashWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                paymentID:
+                  type: string
+                trxID:
+                  type: string
+                transactionStatus:
+                  type: string
+      responses:
+        "200":
+          description: Webhook acknowledged (always 200)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookResponse"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+      x-gateway-info:
+        provider: bKash
+        signature-header: x-app-key
+        signature-type: App key match
+
+  /payments/{id}:
+    get:
+      tags: [Payments]
+      summary: Retrieve a payment record by its ID.
+      operationId: getPayment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Payment record retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  orderId:
+                    type: string
+                    format: uuid
+                  provider:
+                    $ref: "#/components/schemas/PaymentProvider"
+                  transactionId:
+                    type: string
+                  status:
+                    $ref: "#/components/schemas/PaymentStatus"
+                  rawResponse:
+                    type: object
+                    nullable: true
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                  order:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      status:
+                        $ref: "#/components/schemas/OrderStatus"
+                      totalAmount:
+                        type: string
+        "404":
+          $ref: "#/components/responses/404NotFound"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+
+# ─────────────────────────────────────────────────────────────
+# Tags
+# ─────────────────────────────────────────────────────────────
+tags:
+  - name: Authentication
+    description: User registration, login, token refresh
+  - name: Categories
+    description: Hierarchical category tree with nested products
+  - name: Orders
+    description: Order creation and lifecycle management
+  - name: Payments
+    description: Payment initiation, confirmation, and retrieval
+  - name: Webhooks
+    description: Incoming gateway webhooks (Stripe, bKash)
