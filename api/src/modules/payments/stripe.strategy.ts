@@ -19,15 +19,30 @@ import type {
 } from './payment.types';
 
 export class StripePaymentStrategy implements IPaymentStrategy {
-  private readonly stripe: Stripe;
+  private stripe: Stripe | null = null;
 
   constructor() {
     if (!env.STRIPE_SECRET_KEY) {
       logger.warn('STRIPE_SECRET_KEY not set — Stripe strategy will fail at runtime');
     }
-    this.stripe = new Stripe(env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder', {
+  }
+
+  private getStripeClient(): Stripe {
+    if (this.stripe) {
+      return this.stripe;
+    }
+
+    if (!env.STRIPE_SECRET_KEY) {
+      throw new Error(
+        'Stripe is not configured. Set STRIPE_SECRET_KEY before processing payments.',
+      );
+    }
+
+    this.stripe = new Stripe(env.STRIPE_SECRET_KEY, {
       maxNetworkRetries: 3,
     });
+
+    return this.stripe;
   }
 
   async initiatePayment(
@@ -37,7 +52,8 @@ export class StripePaymentStrategy implements IPaymentStrategy {
   ): Promise<InitiatePaymentResult> {
     const amountInCents = Math.round(amount * 100);
 
-    const paymentIntent = await this.stripe.paymentIntents.create({
+    const stripe = this.getStripeClient();
+    const paymentIntent = await stripe.paymentIntents.create({
       amount: amountInCents,
       currency: 'usd',
       metadata: {
@@ -47,10 +63,7 @@ export class StripePaymentStrategy implements IPaymentStrategy {
       automatic_payment_methods: { enabled: true },
     });
 
-    logger.info(
-      { orderId, transactionId: paymentIntent.id },
-      'Stripe PaymentIntent created',
-    );
+    logger.info({ orderId, transactionId: paymentIntent.id }, 'Stripe PaymentIntent created');
 
     return {
       paymentUrl: '', // Stripe uses client_secret on the frontend, not a redirect URL
@@ -66,7 +79,8 @@ export class StripePaymentStrategy implements IPaymentStrategy {
     const { transactionId } = payload;
 
     try {
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(transactionId);
+      const stripe = this.getStripeClient();
+      const paymentIntent = await stripe.paymentIntents.retrieve(transactionId);
 
       const succeeded = paymentIntent.status === 'succeeded';
 
@@ -97,7 +111,8 @@ export class StripePaymentStrategy implements IPaymentStrategy {
 
     let event: Stripe.Event;
     try {
-      event = this.stripe.webhooks.constructEvent(rawBody, signatureHeader, env.STRIPE_WEBHOOK_SECRET);
+      const stripe = this.getStripeClient();
+      event = stripe.webhooks.constructEvent(rawBody, signatureHeader, env.STRIPE_WEBHOOK_SECRET);
     } catch (err) {
       logger.error({ err }, 'Stripe webhook signature verification failed');
       throw new WebhookSignatureError();

@@ -6,9 +6,10 @@ const prisma = new PrismaClient();
 async function main(): Promise<void> {
   console.log('🌱 Seeding database...\n');
 
-  // ─── Users (real bcrypt hashes) ─────────────────────
+  // ─── Users (real bcrypt hashes, salt rounds = 10) ────
   const adminPasswordHash = await bcrypt.hash('admin123', 10);
   const customerPasswordHash = await bcrypt.hash('customer123', 10);
+  const customer2PasswordHash = await bcrypt.hash('jane2024', 10);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
@@ -30,23 +31,43 @@ async function main(): Promise<void> {
     },
   });
 
-  console.log(`👤 Users: ${admin.email} (ADMIN) / ${customer.email} (CUSTOMER)`);
-
-  // ─── Categories (hierarchical) ──────────────────────
-  const electronics = await prisma.category.create({
-    data: { name: 'Electronics', slug: 'electronics' },
+  const customer2 = await prisma.user.upsert({
+    where: { email: 'jane@example.com' },
+    update: { passwordHash: customer2PasswordHash },
+    create: {
+      email: 'jane@example.com',
+      passwordHash: customer2PasswordHash,
+      role: Role.CUSTOMER,
+    },
   });
 
-  const laptops = await prisma.category.create({
-    data: { name: 'Laptops', slug: 'laptops', parentId: electronics.id },
+  console.log(
+    `👤 Users: ${admin.email} (ADMIN), ${customer.email} (CUSTOMER), ${customer2.email} (CUSTOMER)`,
+  );
+
+  // ─── Categories (idempotent upsert by slug) ──────────
+  const electronics = await prisma.category.upsert({
+    where: { slug: 'electronics' },
+    update: {},
+    create: { name: 'Electronics', slug: 'electronics' },
   });
 
-  const smartphones = await prisma.category.create({
-    data: { name: 'Smartphones', slug: 'smartphones', parentId: electronics.id },
+  const laptops = await prisma.category.upsert({
+    where: { slug: 'laptops' },
+    update: {},
+    create: { name: 'Laptops', slug: 'laptops', parentId: electronics.id },
   });
 
-  const audio = await prisma.category.create({
-    data: { name: 'Audio', slug: 'audio', parentId: electronics.id },
+  const smartphones = await prisma.category.upsert({
+    where: { slug: 'smartphones' },
+    update: {},
+    create: { name: 'Smartphones', slug: 'smartphones', parentId: electronics.id },
+  });
+
+  const audio = await prisma.category.upsert({
+    where: { slug: 'audio' },
+    update: {},
+    create: { name: 'Audio', slug: 'audio', parentId: electronics.id },
   });
 
   console.log(

@@ -8,14 +8,21 @@
 
 // Must mock Stripe before any imports to prevent constructor validation error
 jest.mock('stripe', () => {
-  return jest.fn().mockImplementation(() => ({
-    paymentIntents: { create: jest.fn(), retrieve: jest.fn() },
-    webhooks: { constructEvent: jest.fn() },
-  }));
+  return jest.fn().mockImplementation((apiKey?: string) => {
+    if (!apiKey || apiKey === 'sk_test_placeholder') {
+      throw new Error('Neither apiKey nor config.authenticator provided');
+    }
+
+    return {
+      paymentIntents: { create: jest.fn(), retrieve: jest.fn() },
+      webhooks: { constructEvent: jest.fn() },
+    };
+  });
 });
 
 import { PaymentContext, STRATEGY_REGISTRY } from '../payment.context';
 import { UnsupportedProviderError } from '../payment.errors';
+import { StripePaymentStrategy } from '../stripe.strategy';
 
 // ─── Helpers ───────────────────────────────────────────────
 const mockInitiatePayment = jest.fn();
@@ -46,6 +53,12 @@ afterAll(() => {
 // ════════════════════════════════════════════════════════════
 
 describe('PaymentContext — Strategy Resolution', () => {
+  it('does not construct Stripe until a Stripe payment is actually initiated', async () => {
+    const strategy = new StripePaymentStrategy();
+
+    expect(strategy).toBeDefined();
+  });
+
   it('dispatches initiatePayment to Stripe strategy when provider is STRIPE', async () => {
     mockInitiatePayment.mockResolvedValue({
       paymentUrl: '',

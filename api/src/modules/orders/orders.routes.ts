@@ -51,11 +51,13 @@ orderRouter.get(
   }),
 );
 
-// POST /api/orders — create order (uses userId from body for now)
+// POST /api/orders — create order for the authenticated user
 orderRouter.post(
   '/',
+  authMiddleware,
   asyncHandler(async (req, res) => {
-    const { userId, items } = req.body;
+    const userId = req.user!.userId;
+    const { items } = req.body;
     const order = await orderService.createOrder({ userId, items });
     res.status(201).json(order);
   }),

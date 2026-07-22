@@ -3,13 +3,22 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const urlLikeSchema = z.string().refine((value) => {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}, 'Must be a valid URL string');
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().positive().max(65535).default(4000),
   HOST: z.string().default('0.0.0.0'),
 
   // Database
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: urlLikeSchema,
 
   // Security
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
@@ -23,14 +32,14 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
   // Redis
-  REDIS_URL: z.string().url().default('redis://localhost:6379'),
+  REDIS_URL: urlLikeSchema.default('redis://localhost:6379'),
 
   // Stripe
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 
   // bKash
-  BKASH_BASE_URL: z.string().url().optional(),
+  BKASH_BASE_URL: urlLikeSchema.optional(),
   BKASH_APP_KEY: z.string().optional(),
   BKASH_APP_SECRET: z.string().optional(),
   BKASH_USERNAME: z.string().optional(),
