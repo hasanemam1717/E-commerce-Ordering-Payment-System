@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.js.map
+*.d.ts
+*.d.ts.map
+prisma/migrations/
+logs/
+*.log
+.DS_Store
