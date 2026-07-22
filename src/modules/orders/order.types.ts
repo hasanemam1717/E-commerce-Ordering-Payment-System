@@ -24,7 +24,7 @@ export interface ValidatedProduct {
   status: string;
 }
 
-/** An item in the response DTO */
+/** An item in the order detail response */
 export interface OrderItemResponse {
   productId: string;
   productName: string;
@@ -42,6 +42,40 @@ export interface OrderResponse {
   total: number;
   items: OrderItemResponse[];
   createdAt: string;
+}
+
+/** Order list item (no nested items — lightweight) */
+export interface OrderListItem {
+  id: string;
+  userId: string;
+  status: string;
+  total: number;
+  itemCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Order detail with items (full payload) */
+export interface OrderDetailResponse {
+  id: string;
+  userId: string;
+  userEmail: string;
+  status: string;
+  total: number;
+  items: OrderItemResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Paginated order list wrapper */
+export interface PaginatedOrderResult {
+  data: OrderListItem[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 /** Internal calculation state used during order processing */
