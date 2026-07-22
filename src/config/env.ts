@@ -54,11 +54,16 @@ function parseTimeToSeconds(value: string): number {
   const num = parseInt(match[1]!, 10);
   const unit = match[2]!;
   switch (unit) {
-    case 's': return num;
-    case 'm': return num * 60;
-    case 'h': return num * 3600;
-    case 'd': return num * 86400;
-    default:  return 900;
+    case 's':
+      return num;
+    case 'm':
+      return num * 60;
+    case 'h':
+      return num * 3600;
+    case 'd':
+      return num * 86400;
+    default:
+      return 900;
   }
 }
 
