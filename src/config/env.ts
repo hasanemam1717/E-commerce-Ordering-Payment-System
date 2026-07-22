@@ -24,6 +24,17 @@ const envSchema = z.object({
 
   // Redis
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
+
+  // Stripe
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
+  // bKash
+  BKASH_BASE_URL: z.string().url().optional(),
+  BKASH_APP_KEY: z.string().optional(),
+  BKASH_APP_SECRET: z.string().optional(),
+  BKASH_USERNAME: z.string().optional(),
+  BKASH_PASSWORD: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

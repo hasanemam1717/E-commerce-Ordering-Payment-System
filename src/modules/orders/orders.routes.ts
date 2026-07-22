@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../common/middleware/errorHandler';
+import { prisma } from '../../config/prisma';
+import { OrderService } from './order.service';
 
+const orderService = new OrderService(prisma);
 export const orderRouter = Router();
 
 // GET /api/orders
@@ -24,9 +27,10 @@ orderRouter.get(
 // POST /api/orders
 orderRouter.post(
   '/',
-  asyncHandler(async (_req, res) => {
-    // TODO: Implement create order
-    res.status(201).json({ message: 'Create order endpoint' });
+  asyncHandler(async (req, res) => {
+    const { userId, items } = req.body;
+    const order = await orderService.createOrder({ userId, items });
+    res.status(201).json(order);
   }),
 );
 

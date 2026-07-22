@@ -5,10 +5,11 @@ import { env } from './config/env';
 import { logger } from './config/logger';
 import { errorHandler, notFoundHandler } from './common/middleware/errorHandler';
 import { apiRateLimiter } from './common/middleware/rateLimiter';
+import { rawBodyCapture } from './common/middleware/rawBody';
 import { authRouter } from './modules/auth/auth.routes';
 import { productRouter } from './modules/products/products.routes';
 import { orderRouter } from './modules/orders/orders.routes';
-import { paymentRouter } from './modules/payments/payments.routes';
+import { paymentRouter, webhookRouter } from './modules/payments/payments.routes';
 import { categoryRouter } from './modules/categories/categories.routes';
 
 const app = express();
@@ -26,6 +27,9 @@ app.use(
     maxAge: 86400,
   }),
 );
+
+// ─── Webhook routes (MUST be before body parsers — Stripe needs raw body) ─
+app.use('/api/payments/webhook', rawBodyCapture, webhookRouter);
 
 // ─── Body parsing ─────────────────────────────────────
 app.use(express.json({ limit: '1mb' }));
