@@ -1,7 +1,0 @@
-                  id                  |               order_id               | provider | status  |           transaction_id            
---------------------------------------+--------------------------------------+----------+---------+-------------------------------------
- b8912ed3-61f9-4254-9944-620cc01eaf9d | 43365186-65f7-490e-8da6-7a07a4392ef1 | STRIPE   | FAILED  | pending-1784713857750
- c335c432-4c9e-4756-9592-54128408ae88 | 95bc8a7a-beee-4d65-872a-aea7daeff28a | STRIPE   | FAILED  | pending-1784713712961
- fe44681d-8569-439e-ab49-3eb45e3f0ba2 | 62e12774-547e-45f0-a8e0-450ea5786f41 | STRIPE   | SUCCESS | pi_f7dc23750b274011bb172a3ba53e01d3
-(3 rows)
-
